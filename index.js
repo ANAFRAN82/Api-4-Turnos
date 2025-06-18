@@ -11,8 +11,6 @@ const { ConnectDB } = require('./data/config');
 const app = express();
 const server = http.createServer(app);
 
-
-ConnectDB();
 // Configuración de WebSocket
 const io = new Server(server, {
   cors: {
@@ -34,7 +32,10 @@ io.on('connection', (socket) => {
 });
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+  credentials: true
+}));
 app.use(express.json());
 
 // Inyectar io en las rutas
@@ -43,16 +44,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// Ruta de health check
+app.get('/', (req, res) => {
+  res.json({ message: 'API de Turnos funcionando correctamente' });
+});
+
 // Rutas
 app.use('/api-4-turnos', turnoRoutes);
 
-// Conexión a MongoDB
-mongoose.connect(process.env.URL)
-  .then(() => {
-    console.log('Conectado a MongoDB');
-    const PORT = process.env.PORT || 3010;
-    server.listen(PORT, () => {
-      console.log(`Servidor de turnos en http://192.168.103.85:${PORT}`);
+// Conectar a la base de datos y iniciar servidor
+const startServer = async () => {
+  try {
+    await ConnectDB();
+    const PORT = process.env.PORT || 3009;
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Servidor de turnos en puerto ${PORT}`);
     });
-  })
-  .catch(err => console.error('Error MongoDB:', err));
+  } catch (error) {
+    console.error('Error al iniciar el servidor:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
